@@ -1,5 +1,5 @@
 -- ============================================
--- FROGASAURUS.LOL - FULL RELEASE
+-- FROGASAURUS.LOL - NO-MODULE (UPDATE PROOF)
 -- ============================================
 
 local reps = game:GetService("ReplicatedStorage")
@@ -10,12 +10,8 @@ local UIS = game:GetService("UserInputService")
 local TS = game:GetService("TweenService")
 local lplr = plrs.LocalPlayer
 local cam = workspace.CurrentCamera
-local HS = game:GetService("HttpService")
 
-local CONFIG_FILE = "frogasaurus_config.json"
-
--- Default Config
-local DefaultConfig = {
+getgenv().Config = getgenv().Config or {
     FOVRadius = 1500,
     ShowFOV = true,
     Enabled = true,
@@ -23,22 +19,6 @@ local DefaultConfig = {
     SilentAim = false,
     MaxDistance = 1000,
 }
-
-getgenv().Config = getgenv().Config or DefaultConfig
-
--- Config Save/Load
-local function SaveConfig()
-    if writefile then pcall(function() writefile(CONFIG_FILE, HS:JSONEncode(getgenv().Config)) end) end
-end
-local function LoadConfig()
-    if isfile and isfile(CONFIG_FILE) then
-        local success, data = pcall(function() return HS:JSONDecode(readfile(CONFIG_FILE)) end)
-        if success and type(data) == "table" then
-            for k, v in pairs(data) do getgenv().Config[k] = v end
-        end
-    end
-end
-LoadConfig()
 
 -- ============================================
 -- 1. ESP MODULE
@@ -449,17 +429,9 @@ makeLabeledSwitch(visualPage, "Name Tag", true, function(v) ESP.SetNames(v) end,
 makeLabeledSwitch(visualPage, "Tracers", true, function(v) ESP.SetTracers(v) end, 136)
 makeLabeledSwitch(visualPage, "Silent Aim (Absolute)", getgenv().Config.SilentAim, function(v) getgenv().Config.SilentAim = v end, 192)
 
--- Config Tab
-new("TextLabel", { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "SETTINGS", TextSize = 10, TextColor3 = COLORS.textDim, TextXAlignment = Enum.TextXAlignment.Left, Parent = configPage })
-
-local saveBtn = new("TextButton", { Size = UDim2.new(1, 0, 0, 42), Position = UDim2.new(0, 0, 0, 24), BackgroundColor3 = COLORS.bgAlt, Text = "Save Config", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = COLORS.text, Parent = configPage })
-corner(saveBtn, 8); stroke(saveBtn, COLORS.accent, 1.5)
-saveBtn.MouseButton1Click:Connect(function()
-    SaveConfig()
-    saveBtn.Text = "Saved!"
-    task.wait(1)
-    saveBtn.Text = "Save Config"
-end)
+-- Config Tab (Info Only)
+new("TextLabel", { Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, Font = Enum.Font.GothamBold, Text = "INFO", TextSize = 10, TextColor3 = COLORS.textDim, TextXAlignment = Enum.TextXAlignment.Left, Parent = configPage })
+new("TextLabel", { Size = UDim2.new(1, 0, 0, 36), Position = UDim2.new(0, 0, 0, 24), BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, Text = "Config saving is disabled to prevent executor crashes.", TextSize = 12, TextWrapped = true, TextColor3 = COLORS.textDim, TextXAlignment = Enum.TextXAlignment.Left, Parent = configPage })
 
 task.spawn(function()
     task.wait(0.1)
@@ -484,5 +456,23 @@ runs.RenderStepped:Connect(function()
         FOV.Position = cam.ViewportSize / 2
         FOV.Radius = getgenv().Config.FOVRadius
         FOV.Visible = getgenv().Config.ShowFOV
-  end
-  
+    end
+end)
+
+-- ============================================
+-- 4. THE ULTIMATE TRICK (WORLD TO SCREEN + HOOKS)
+-- ============================================
+local silentAimTarget = nil
+local silentAimOriginalIndex = nil
+local silentAimHookActive = false
+
+local function getClosestHead()
+    if not getgenv().Config.Enabled or not getgenv().Config.SilentAim then return nil end
+    local center = cam.ViewportSize / 2
+    local bestPart, bestDist = nil, getgenv().Config.FOVRadius
+    local myPos = cam.CFrame.Position
+    
+    for _, entity in cs:GetTagged("Entity") do
+        if entity ~= lplr.Character then
+            local head = entity:FindFirstChild("Head", true)
+            if head and head:IsA("BasePart") th
