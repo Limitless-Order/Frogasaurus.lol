@@ -475,4 +475,80 @@ local function getClosestHead()
     for _, entity in cs:GetTagged("Entity") do
         if entity ~= lplr.Character then
             local head = entity:FindFirstChild("Head", true)
-            if head and head:IsA("BasePart") th
+                        if head and head:IsA("BasePart") then
+                local worldDist = (head.Position - myPos).Magnitude
+                if worldDist <= getgenv().Config.MaxDistance then
+                    local sp, onScreen = cam:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                        if d < bestDist then bestDist = d; bestPart = head end
+                    end
+                end
+            end
+        end
+    end
+    return bestPart
+end
+
+function setupSilentAimHook()
+    if silentAimHookActive then return end
+    if not hookmetamethod then return end
+    
+    local isCaller = checkcaller or function() return false end
+    silentAimOriginalIndex = hookmetamethod(game, "__index", newcclosure(function(self, index)
+        if getgenv().Config.SilentAim and not isCaller() and index == "ViewportSize" and self == cam and silentAimTarget then
+            local screenPos, isOnScreen = cam:WorldToViewportPoint(silentAimTarget)
+            if isOnScreen then
+                return Vector2.new(screenPos.X * 2, screenPos.Y * 2)
+            end
+        end
+        return silentAimOriginalIndex(self, index)
+    end))
+    silentAimHookActive = true
+end
+setupSilentAimHook()
+
+task.spawn(function()
+    while true do
+        if getgenv().Config.SilentAim then
+            local bestHead = getClosestHead()
+            if bestHead then silentAimTarget = bestHead.Position else silentAimTarget = nil end
+        else
+            silentAimTarget = nil
+        end
+        runs.Heartbeat:Wait()
+    end
+end)
+
+local function makeCFD(originPos, headPart)
+    return {
+        [utf8.char(1)] = {
+            [utf8.char(0)] = CFrame.lookAt(originPos, headPart.Position),
+            [utf8.char(1)] = headPart.CFrame,
+            [utf8.char(2)] = headPart,
+            [utf8.char(3)] = headPart.CFrame:ToObjectSpace(CFrame.new(headPart.Position)),
+        }
+    }
+end
+
+task.spawn(function()
+    local remotePath = reps:FindFirstChild("Remotes")
+    if remotePath then remotePath = remotePath:FindFirstChild("Replication") end
+    if remotePath then remotePath = remotePath:FindFirstChild("Fighter") end
+    if remotePath then remotePath = remotePath:FindFirstChild("UseItem") end
+
+    if remotePath and remotePath:IsA("RemoteEvent") then
+        local oldFire = remotePath.FireServer
+        remotePath.FireServer = newcclosure(function(self, objID, enumVal, camdata, extra)
+            if getgenv().Config.Enabled and getgenv().Config.SilentAim then
+                local root = lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+                local t = getClosestHead()
+                if root and t then 
+                    cam.CFrame = CFrame.lookAt(cam.CFrame.Position, t.Position)
+                    camdata = makeCFD(root.Position, t)
+                end
+            end
+            return oldFire(self, objID, enumVal, camdata, extra)
+        end)
+    end
+end)
